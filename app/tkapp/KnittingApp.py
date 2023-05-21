@@ -1,24 +1,24 @@
 ﻿#!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-from Config import Config
-from Messages import Messages
+from .Config import Config
+from .Messages import Messages
 from app.gui.Gui import Gui
 from PDDemulate import PDDemulator
 from PDDemulate import PDDEmulatorListener
 from dumppattern import PatternDumper
 from insertpattern import PatternInserter
-import Tkinter
-import tkFileDialog
+import tkinter
+from tkinter import filedialog
 import os
 import os.path
 from PIL import Image
 import itertools
 
-class KnittingApp(Tkinter.Tk):
+class KnittingApp(tkinter.Tk):
 
     def __init__(self,parent=None):
-        Tkinter.Tk.__init__(self,parent)
+        tkinter.Tk.__init__(self,parent)
         self.parent = parent
         self.initialize()
         #self.startEmulator()
@@ -76,7 +76,7 @@ class KnittingApp(Tkinter.Tk):
                 self.msg.showInfo('PDDemulate Version 1.1 Ready!')
                 self.setEmulatorStarted(True)
                 self.after_idle(self.emulatorLoop)
-            except Exception, e:
+            except Exception as e:
                 self.msg.showError('Ensure that TFDI cable is connected to port ' + port + '\n\nError: ' + str(e))
                 self.setEmulatorStarted(False)
         
@@ -197,7 +197,7 @@ class KnittingApp(Tkinter.Tk):
         self.storeTrack()
 
     def chooseDatFileButtonClicked(self):
-        filePath = tkFileDialog.askopenfilename(filetypes=[('DAT file', '*.dat')], initialfile=self.datFileEntry.entryText.get(),
+        filePath = filedialog.askopenfilename(filetypes=[('DAT file', '*.dat')], initialfile=self.datFileEntry.entryText.get(),
             title='Choose dat file with patterns...')
         if len(filePath) > 0:
             self.msg.showInfo('Opened dat file ' + filePath)
@@ -317,7 +317,7 @@ class KnittingApp(Tkinter.Tk):
             return
         index = int(sel[0])
         pattern = self.patterns[index]
-        filePath = tkFileDialog.askopenfilename(filetypes=[('2-color Bitmap', '*.bmp')],
+        filePath = filedialog.askopenfilename(filetypes=[('2-color Bitmap', '*.bmp')],
             title='Choose bitmap file to insert...')
         if len(filePath) > 0:
             self.insertBitmap(filePath, pattern["number"])
@@ -329,7 +329,7 @@ class KnittingApp(Tkinter.Tk):
             return
         index = int(sel[0])
         pattern = self.patterns[index]
-        filePath = tkFileDialog.asksaveasfilename(filetypes=[('2-color Bitmap', '*.bmp')],
+        filePath = filedialog.asksaveasfilename(filetypes=[('2-color Bitmap', '*.bmp')],
             title='Save as a bitmap file...')
         if len(filePath) > 0:
             patternNumber = pattern['number']
