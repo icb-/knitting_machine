@@ -65,7 +65,7 @@ import sys
 import os
 import os.path
 import string
-from array import *
+from array import * # type: ignore
 import serial
 
 version = '1.0'
@@ -82,8 +82,8 @@ class DiskSector():
     def __init__(self, fn):
         self.sectorSz = 1024
         self.idSz = 12
-        self.data = ''
-        self.id = ''
+        self.data: bytes = b''
+        self.id: bytes = b''
         #self.id = array('c')
 
         dfn = fn + ".dat"
@@ -91,14 +91,14 @@ class DiskSector():
 
         try:
             try:
-                self.df = open(dfn, 'r+')
+                self.df = open(dfn, 'rb+')
             except IOError:
-                self.df = open(dfn, 'w')
+                self.df = open(dfn, 'wb')
 
             try:
-                self.idf = open(idfn, 'r+')
+                self.idf = open(idfn, 'rb+')
             except IOError:
-                self.idf = open(idfn, 'w')
+                self.idf = open(idfn, 'wb')
 
             dfs = os.path.getsize(dfn)
             idfs = os.path.getsize(idfn)
@@ -110,7 +110,7 @@ class DiskSector():
         try:
             if dfs == 0:
                 # New or empty file
-                self.data = ''.join([chr(0) for num in range(self.sectorSz)])
+                self.data = bytearray(self.sectorSz)
                 self.writeDFile()
             elif dfs == self.sectorSz:
                 # Existing file
@@ -125,7 +125,7 @@ class DiskSector():
         try:
             if idfs == 0:
                 # New or empty file
-                self.id = ''.join([chr(0) for num in range(self.idSz)])
+                self.id = bytearray(self.idSz)
                 self.writeIdFile()
             elif idfs == self.idSz:
                 # Existing file
@@ -142,31 +142,31 @@ class DiskSector():
     def __del__(self):
         return
 
-    def format(self):
-        self.data = ''.join([chr(0) for num in range(self.sectorSz)])
+    def format(self) -> None:
+        self.data = bytearray(self.sectorSz)
         self.writeDFile()
-        self.id = ''.join([chr(0) for num in range(self.idSz)])
+        self.id = bytearray(self.idSz)
         self.writeIdFile()
 
-    def writeDFile(self):
+    def writeDFile(self) -> None:
         self.df.seek(0)
         self.df.write(self.data)
         self.df.flush()
         return
 
-    def writeIdFile(self):
+    def writeIdFile(self) -> None:
         self.idf.seek(0)
         self.idf.write(self.id)
         self.idf.flush()
         return
 
-    def read(self, length):
+    def read(self, length: int) -> bytes:
         if length != self.sectorSz:
             print( 'Error, read of %d bytes when expecting %d' % (length, self.sectorSz))
             raise IOError
         return self.data
 
-    def write(self, indata):
+    def write(self, indata: bytes) -> None:
         if len(indata) != self.sectorSz:
             print( 'Error, write of %d bytes when expecting %d' % (len(indata), self.sectorSz))
             raise IOError
@@ -174,10 +174,10 @@ class DiskSector():
         self.writeDFile()
         return
 
-    def getSectorId(self):
+    def getSectorId(self) -> bytes:
         return self.id
 
-    def setSectorId(self, newid):
+    def setSectorId(self, newid: bytes) -> None:
         if len(newid) != self.idSz:
             print ('Error, bad id length of %d bytes when expecting %d' % (len(newid), self.id))
             raise IOError
@@ -187,10 +187,8 @@ class DiskSector():
         self.dumpId()
         return
 
-    def dumpId(self):
-        for i in self.id:
-            print ('%02X ' % ord(i))
-        print(' ')
+    def dumpId(self) -> None:
+        print(f"dumpId: {' '.join(['%02X'%i for i in self.id])}")
 
 class Disk():
     """
@@ -198,9 +196,9 @@ class Disk():
         self.lastDatFilePath : string
     """
     
-    def __init__(self, basename):
+    def __init__(self, basename: str):
         self.numSectors = 80
-        self.Sectors = []
+        self.Sectors: list[DiskSector] = []
         self.filespath = ""
         ""
         self.lastDatFilePath = None
@@ -237,26 +235,27 @@ class Disk():
     def __del__(self):
         return
 
-    def format(self):
+    def format(self) -> None:
         for i in range(self.numSectors):
             self.Sectors[i].format()
         return
 
-    def findSectorID(self, psn, id):
+    def findSectorID(self, psn: int, id: bytes) -> bytes:
         for i in range(psn, self.numSectors):
             sid = self.Sectors[i].getSectorId()
+            print(f'findSectorID({psn}, {id}): {repr(sid)}')
             if id == sid:
-                return '00' + '%02X' % i + '0000'
-        return '40000000'
+                return ('00' + '%02X' % i + '0000').encode('ascii')
+        return b'40000000'
 
-    def getSectorID(self, psn):
+    def getSectorID(self, psn: int) -> bytes:
         return self.Sectors[psn].getSectorId()
 
-    def setSectorID(self, psn, id):
+    def setSectorID(self, psn: int, id: bytes) -> None:
         self.Sectors[psn].setSectorId(id)
         return
 
-    def writeSector(self, psn, lsn, indata):
+    def writeSector(self, psn: int, lsn: int, indata: bytes) -> None:
         self.Sectors[psn].write(indata)
         if psn % 2:
             filenum =  ((psn-1)/2)+1
@@ -271,42 +270,42 @@ class Disk():
             self.lastDatFilePath = outfn
         return
 
-    def readSector(self, psn, lsn):
+    def readSector(self, psn: int, lsn: int) -> bytes:
         return self.Sectors[psn].read(1024)
 
 class PDDemulator():
 
     def __init__(self, basename):
-        self.listeners = [] # list of PDDEmulatorListener
+        self.listeners: list[PDDEmulatorListener] = [] # list of PDDEmulatorListener
         self.verbose = True
         self.noserial = False
-        self.ser = None
+        self.ser: serial.Serial
         self.disk = Disk(basename)
         self.FDCmode = False
         # bytes per logical sector
         self.bpls = 1024
-        self.formatLength = {'0':64, '1':80, '2': 128, '3': 256, '4': 512, '5': 1024, '6': 1280}
+        self.formatLength = {b'0':64, b'1':80, b'2': 128, b'3': 256, b'4': 512, b'5': 1024, b'6': 1280}
         return
 
     def __del__(self):
         return
 
-    def open(self, cport='/dev/ttyUSB0'):
+    def open(self, cport='/dev/ttyUSB0') -> None:
         if self.noserial is False:
-            self.ser = serial.Serial(port=cport, baudrate=9600, parity='N', stopbits=1, timeout=1, xonxoff=0, rtscts=0, dsrdtr=0)
+            self.ser = serial.Serial(port=cport, baudrate=9600)
 #            self.ser.setRTS(True)
             if self.ser == None:
                 print( 'Unable to open serial device %s' % cport)
                 raise IOError
         return
 
-    def close(self):
+    def close(self) -> None:
         if self.noserial is not False:
-            if ser:
-                ser.close()
+            if self.ser:
+                self.ser.close()
         return
 
-    def dumpchars(self):
+    def dumpchars(self) -> None:
         num = 1
         while 1:
             inc = self.ser.read()
@@ -317,49 +316,50 @@ class PDDemulator():
                 break
         return
 
-    def readsomechars(self, num):
+    def readsomechars(self, num: int) -> bytes:
         sch =  self.ser.read(num)
         return sch
 
-    def readchar(self):
-        inc = ''
+    def readchar(self) -> bytes:
+        inc = b''
         while len(inc) == 0:
             inc = self.ser.read()
         return inc
             
-    def writebytes(self, bytes):
-        self.ser.write(bytes)
+    def writebytes(self, b: bytes) -> None:
+        self.ser.write(b)
         return
 
-    def readFDDRequest(self):
+    def readFDDRequest(self) -> list[bytes]:
         inbuf = []
         # read through a carriage return
         # parameters are seperated by commas
-        while 1:
+        while True:
             inc = self.readchar()
-            if inc == '\r':
+            if inc == b'\r':
                 break
-            elif inc == ' ':
+            elif inc == b' ':
                 continue
             else:
                 inbuf.append(inc)
 
-        all = string.join(inbuf, '')
-        rv =  all.split(',')
+        all = b''.join(inbuf)
+        rv =  all.split(b',')
         return rv
 
-    def getPsnLsn(self, info):
+    def getPsnLsn(self, info: list[bytes]) -> tuple[int, int]:
         psn = 0
         lsn = 1
-        if len(info) >= 1 and info[0] != '':
+        if len(info) >= 1 and info[0] != b'':
             val = int(info[0])
             if psn <= 79:
                 psn = val
-        if len(info) > 1 and info[1] != '':
+        if len(info) > 1 and info[1] != b'':
             val = int(info[0])
         return psn, lsn
 
-    def readOpmodeRequest(self, req):
+    # TODO: Not sure how to type annotate this yet
+    def readOpmodeRequest(self, req: int):
         buff = array('b')
         sum = req
         reqlen = ord(self.readchar())
@@ -391,23 +391,24 @@ class PDDemulator():
         # never returns
         return
 
-    def handleRequest(self, blocking = True):
+    def handleRequest(self, blocking = True) -> None:
         if not blocking:
-            if self.ser.inWaiting() == 0:
+            if self.ser.in_waiting == 0:
                 return
         inc = self.readchar()
         if self.FDCmode:
             self.handleFDCmodeRequest(inc)
         else:
             # in OpMode, look for ZZ
-            #inc = self.readchar()
-            if inc != 'Z':
+            if inc != b'Z':
                 return
             inc = self.readchar()
-            if inc == 'Z':
+            if inc == b'Z':
                 self.handleOpModeRequest()
+            else:
+                print(f'Unknown op mode command: {hex(ord(inc))}')
 
-    def handleOpModeRequest(self):
+    def handleOpModeRequest(self) -> None:
         req = ord(self.ser.read())
         print('Request: 0X%02X' % req)
         if req == 0x08:
@@ -420,7 +421,7 @@ class PDDemulator():
             print('Invalid OpMode request code 0X%02X received' % req)
         return
 
-    def handleFDCmodeRequest(self, cmd):
+    def handleFDCmodeRequest(self, cmd: bytes):
         # Commands may be followed by an optional space
         # PSN (physical sector) range 0-79
         # LSN (logical sector) range 0-(number of logical sectors in a physical sector)
@@ -446,189 +447,191 @@ class PDDemulator():
         #   In the case of an S, C, or M command -- or an F command that ends in
         #   an error -- the bytes contain '0000'
         #
+        match cmd:
+                
+            case b'\r':
+                return
 
-        if cmd == '\r':
-            return
+            case b'Z':
+                # Hmmm, looks like we got the start of an Opmode Request
+                inc = self.readchar()
+                if inc == b'Z':
+                    # definitely!
+                    print( 'Detected Opmode Request in FDC Mode, switching to OpMode')
+                    self.FDCmode = False
+                    self.handleOpModeRequest()
 
-        if cmd == 'Z':
-            # Hmmm, looks like we got the start of an Opmode Request
-            inc = self.readchar()
-            if inc == 'Z':
-                # definitely!
-                print( 'Detected Opmode Request in FDC Mode, switching to OpMode')
-                self.FDCmode = False
-                self.handleOpModeRequest()
+            case b'M':
+                # apparently not used by brother knitting machine
+                print( 'FDC Change Modes (Not implemented)')
+                mode = self.readchar()
+                raise
+                # following parameter - 0=FDC, 1=Operating
 
-        elif cmd == 'M':
-            # apparently not used by brother knitting machine
-            print( 'FDC Change Modes')
-            raise
-            # following parameter - 0=FDC, 1=Operating
+            case b'D':
+                # apparently not used by brother knitting machine
+                print( 'FDC Check Device (Not implemented)')
+                raise
+                # Sends result in third and fourth bytes of result code
+                # See doc - return zero for disk installed and not swapped
 
-        elif cmd == 'D':
-            # apparently not used by brother knitting machine
-            print( 'FDC Check Device')
-            raise
-            # Sends result in third and fourth bytes of result code
-            # See doc - return zero for disk installed and not swapped
+            case b'F' | b'G':
+                print('FDC Format')
+                info = self.readFDDRequest()
 
-        elif cmd == 'F'or cmd == 'G':
-            #rint 'FDC Format',
-            info = self.readFDDRequest()
-
-            if len(info) != 1:
-                print ('wrong number of params (%d) received, assuming 1024 bytes per sector' % len(info))
-                bps = 1024
-            else:
-                try:
-                    bps = self.formatLength[info[0]]
-                except KeyError:
-                    print( 'Invalid code %c for format, assuming 1024 bytes per sector' % info[0])
+                if len(info) != 1:
+                    print ('wrong number of params (%d) received, assuming 1024 bytes per sector' % len(info))
                     bps = 1024
-            # we assume 1024 because that's what the brother machine uses
-            if self.bpls != bps:
-                print( 'Bad news, differing sector sizes')
-                self.bpls = bps
+                else:
+                    try:
+                        bps = self.formatLength[info[0]]
+                    except KeyError:
+                        print( 'Invalid code %c for format, assuming 1024 bytes per sector' % info[0])
+                        bps = 1024
+                # we assume 1024 because that's what the brother machine uses
+                if self.bpls != bps:
+                    print( 'Bad news, differing sector sizes')
+                    self.bpls = bps
 
-            self.disk.format()
+                self.disk.format()
 
-            # But this is probably more correct
-            self.writebytes('00000000')
+                # But this is probably more correct
+                self.writebytes(b'00000000')
 
-            # After a format, we always start out with OPMode again
-            self.FDCmode = False
+                # After a format, we always start out with OPMode again
+                self.FDCmode = False
 
-        elif cmd == 'A':
-            # Followed by physical sector number (0-79), defaults to 0
-            # returns ID data, not sector data
-            info = self.readFDDRequest()
-            psn, lsn = self.getPsnLsn(info)
-            print( 'FDC Read ID Section %d' % psn)
-            
-            try:
-                id = self.disk.getSectorID(psn)
-            except:
-                print( 'Error getting Sector ID %d, quitting' % psn)
-                self.writebytes('80000000')
-                raise
+            case b'A':
+                # Followed by physical sector number (0-79), defaults to 0
+                # returns ID data, not sector data
+                info = self.readFDDRequest()
+                psn, lsn = self.getPsnLsn(info)
+                print( 'FDC Read ID Section %d' % psn)
+                
+                try:
+                    id = self.disk.getSectorID(psn)
+                except:
+                    print( 'Error getting Sector ID %d, quitting' % psn)
+                    self.writebytes(b'80000000')
+                    raise
 
-            self.writebytes('00' + '%02X' % psn + '0000')
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-            # see whether to send data
-            go = self.readchar()
-            if go == '\r':
-                self.writebytes(id)
+                # see whether to send data
+                go = self.readchar()
+                if go == b'\r':
+                    self.writebytes(id)
 
-        elif cmd == 'R':
-            # Followed by Physical Sector Number PSN and Logical Sector Number LSN
-            info = self.readFDDRequest()
-            psn, lsn = self.getPsnLsn(info)
-            print('FDC Read one Logical Sector %d' % psn)
-            
-            try:
-                sd = self.disk.readSector(psn, lsn)
-            except:
-                print ('Failed to read Sector %d, quitting' % psn)
-                self.writebytes('80000000')
-                raise
+            case b'R':
+                # Followed by Physical Sector Number PSN and Logical Sector Number LSN
+                info = self.readFDDRequest()
+                psn, lsn = self.getPsnLsn(info)
+                print('FDC Read one Logical Sector %d' % psn)
+                
+                try:
+                    sd = self.disk.readSector(psn, lsn)
+                except:
+                    print ('Failed to read Sector %d, quitting' % psn)
+                    self.writebytes(b'80000000')
+                    raise
 
-            self.writebytes('00' + '%02X' % psn + '0000')
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-            # see whether to send data
-            go = self.readchar()
-            if go == '\r':
-                self.writebytes(sd)
+                # see whether to send data
+                go = self.readchar()
+                if go == b'\r':
+                    self.writebytes(sd)
 
-        elif cmd == 'S':
-            # We receive (optionally) PSN, (optionally) LSN
-            # This is not documented well at all in the manual
-            # What is expected is that all sectors will be searched
-            # and the sector number of the first matching sector
-            # will be returned. The brother machine always sends
-            # PSN = 0, so it is unknown whether searching should
-            # start at Sector 0 or at the PSN sector
-            info = self.readFDDRequest()
-            psn, lsn = self.getPsnLsn(info)
-            print('FDC Search ID Section %d' % psn)
+            case b'S':
+                # We receive (optionally) PSN, (optionally) LSN
+                # This is not documented well at all in the manual
+                # What is expected is that all sectors will be searched
+                # and the sector number of the first matching sector
+                # will be returned. The brother machine always sends
+                # PSN = 0, so it is unknown whether searching should
+                # start at Sector 0 or at the PSN sector
+                info = self.readFDDRequest()
+                psn, lsn = self.getPsnLsn(info)
+                print('FDC Search ID Section %d' % psn)
 
-            # Now we must send status (success)
-            self.writebytes('00' + '%02X' % psn + '0000')
+                # Now we must send status (success)
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-            #self.writebytes('00000000')
+                #self.writebytes('00000000')
 
-            # we receive 12 bytes here
-            # compare with the specified sector (formatted is apparently zeros)
-            id = self.readsomechars(12)
-            print( 'checking ID for sector %d' % psn)
+                # we receive 12 bytes here
+                # compare with the specified sector (formatted is apparently zeros)
+                id = self.readsomechars(12)
+                print( 'checking ID for sector %d' % psn)
 
-            try:
-                status = self.disk.findSectorID(psn, id)
-            except:
-                print("FAIL")
-                status = '30000000'
-                raise
+                try:
+                    status = self.disk.findSectorID(psn, id)
+                except:
+                    print("FAIL")
+                    status = b'30000000'
+                    raise
 
-            print( 'returning %s' % status)
-                    # guessing - doc is unclear, but says that S always ends in 0000
-                    # MATCH 00000000
-                    # MATCH 02000000
-                    # infinite retries 10000000
-                    # infinite retries 20000000
-                    # blinking error 30000000
-                    # blinking error 40000000
-                    # infinite retries 50000000
-                    # infinite retries 60000000
-                    # infinite retries 70000000
-                    # infinite retries 80000000
+                print( 'returning %s' % status)
+                        # guessing - doc is unclear, but says that S always ends in 0000
+                        # MATCH 00000000
+                        # MATCH 02000000
+                        # infinite retries 10000000
+                        # infinite retries 20000000
+                        # blinking error 30000000
+                        # blinking error 40000000
+                        # infinite retries 50000000
+                        # infinite retries 60000000
+                        # infinite retries 70000000
+                        # infinite retries 80000000
 
-            self.writebytes(status)
+                self.writebytes(status)
 
-            # Stay in FDC mode
+                # Stay in FDC mode
 
-        elif cmd == 'B' or cmd == 'C':
-            # Followed by PSN 0-79, defaults to 0
-            # When received, send result status, if not error, wait
-            # for data to be written, then after write, send status again
-            info = self.readFDDRequest()
-            psn, lsn = self.getPsnLsn(info)
-            # print 'FDC Write ID section %d' % psn
+            case b'B' | b'C':
+                # Followed by PSN 0-79, defaults to 0
+                # When received, send result status, if not error, wait
+                # for data to be written, then after write, send status again
+                info = self.readFDDRequest()
+                psn, lsn = self.getPsnLsn(info)
+                # print 'FDC Write ID section %d' % psn
 
-            self.writebytes('00' + '%02X' % psn + '0000')
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-            id = self.readsomechars(12)
+                id = self.readsomechars(12)
 
-            try:
-                self.disk.setSectorID(psn, id)
-            except:
-                print('Failed to write ID for sector %d, quitting' % psn)
-                self.writebytes('80000000')
-                raise
+                try:
+                    self.disk.setSectorID(psn, id)
+                except:
+                    print('Failed to write ID for sector %d, quitting' % psn)
+                    self.writebytes(b'80000000')
+                    raise
 
-            self.writebytes('00' + '%02X' % psn + '0000')
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-        elif cmd == 'W' or cmd == 'X':
-            info = self.readFDDRequest()
-            psn, lsn = self.getPsnLsn(info)
-            print('FDC Write logical sector %d' % psn)
+            case b'W' | b'X':
+                info = self.readFDDRequest()
+                psn, lsn = self.getPsnLsn(info)
+                print('FDC Write logical sector %d' % psn)
 
-            # Now we must send status (success)
-            self.writebytes('00' + '%02X' % psn + '0000')
+                # Now we must send status (success)
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-            indata = self.readsomechars(1024)
-            try:
-                self.disk.writeSector(psn, lsn, indata)
-                for l in self.listeners:
-                    l.dataReceived(self.disk.lastDatFilePath)
-                print('Saved data in dat file: ', self.disk.lastDatFilePath)
-            except:
-                print('Failed to write data for sector %d, quitting' % psn)
-                self.writebytes('80000000')
-                raise
+                indata = self.readsomechars(1024)
+                try:
+                    self.disk.writeSector(psn, lsn, indata)
+                    for l in self.listeners:
+                        l.dataReceived(self.disk.lastDatFilePath)
+                    print('Saved data in dat file: ', self.disk.lastDatFilePath)
+                except:
+                    print('Failed to write data for sector %d, quitting' % psn)
+                    self.writebytes(b'80000000')
+                    raise
 
-            self.writebytes('00' + '%02X' % psn + '0000')
+                self.writebytes(('00' + '%02X' % psn + '0000').encode('ascii'))
 
-        else:
-            print('Unknown FDC command <0x02%X> received' % ord(cmd))
+            case _:
+                print('Unknown FDC command <0x02%X> received' % ord(cmd))
 
         # return to Operational Mode
         return

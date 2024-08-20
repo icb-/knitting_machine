@@ -40,7 +40,7 @@ The subdirectories contain the following:
 
 * test-data:
 
-  A saved set of data from the PDDemulator, with dicumentation abotu what's saved in each memory location.
+  A saved set of data from the PDDemulator, with documentation about what's saved in each memory location.
   A good way to play with the file analysis tools, and may give some insight into the reverse engineering
   process.
 

@@ -32,16 +32,14 @@ class PatternDumper:
     def __init__(self):
         self.printInfoCallback = self.printInfo
 
-    def dumppattern(self,argv):
+    def dumppattern(self,argv: list[str]):
         if len(argv) < 1:
             raise ArgumentsException()
         
         result = Result()
-
+        patt = 0
         if len(argv) == 2:
             patt = int(argv[1])
-        else:
-            patt = 0
 
         bf = brother.brotherFile(argv[0])
         
@@ -55,7 +53,7 @@ class PatternDumper:
 
                 # first dump the 99 'pattern id' blocks
                 for i in range(99):
-                    print("program entry" + i)
+                    print(f"program entry {i}")
                     # each block is 7 bytes
                     bytenum = i*7
 
@@ -71,14 +69,15 @@ class PatternDumper:
 
                     unk1 = bf.getIndexedByte(bytenum)
                     print("\t" + hex(bytenum) + ": " + hex(unk1) + "\t(unknown)")
+                    print(f'\t{hex(bytenum)}: {hex(unk1)}\t(unknown)')
                     bytenum += 1
 
                     rows100 =  bf.getIndexedByte(bytenum)
-                    print("\t" + hex(bytenum) + ": " + hex(rows100) + "\t(rows = " +  (rows100 >> 4)*100 +  " + " +  (rows100 & 0xF)*10)
+                    print(f'\t{hex(bytenum)}: {hex(rows100)}\t(rows={(rows100>>4)*100} + {(rows100 & 0xF)*10}')
                     bytenum += 1
 
                     rows1 =  bf.getIndexedByte(bytenum)
-                    print("\t" + hex(bytenum) + ": " + hex(rows1) + "\t\t+ " +  (rows1 >> 4) +  " stiches = " +  (rows1 & 0xF)*100 + "+")
+                    print(f'\t{hex(bytenum)}: {hex(rows1)}\t\t+ {rows1>>4} stitches = {(rows1&0xF)*100}+')
                     bytenum += 1
 
                     stitches10 =  bf.getIndexedByte(bytenum)
@@ -195,10 +194,12 @@ if __name__ == "__main__":
             for row in range(len(result.pattern)):
                 for stitch in range(len(result.pattern[row])):
                     if(result.pattern[row][stitch]) == 0:
-                        print( ' ')
+                        print(' ', end='')
+                        #print('☐', end='')
                     else:
-                        print( '*')
-                print
+                        print('︎*', end='')
+                        #print('◼︎', end='')
+                print()
 
         
     except ArgumentsException as e:
